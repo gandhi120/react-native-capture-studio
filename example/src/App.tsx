@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageViewer from 'react-native-image-zoom-viewer';
+import ImagePicker from 'react-native-image-crop-picker';
 import {
   processImages,
   fetchProcessingResult,
@@ -37,10 +38,13 @@ const getFileSize = async (filePath: string): Promise<number> => {
 // Format bytes to human readable
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
+  const isNegative = bytes < 0;
+  const absBytes = Math.abs(bytes);
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const i = Math.floor(Math.log(absBytes) / Math.log(k));
+  const value = parseFloat((absBytes / Math.pow(k, i)).toFixed(2));
+  return (isNegative ? '-' : '') + value + ' ' + sizes[i];
 };
 
 interface ImageComparison {
@@ -58,6 +62,7 @@ const MainContent: React.FC = () => {
   const [showCamera, setShowCamera] = useState(false);
   const {
     capturedImages,
+    addImage,
     clearImages,
     processingStatus,
     setProcessingStatus,
@@ -174,6 +179,24 @@ const MainContent: React.FC = () => {
     setComparisons([]);
   }, [clearImages]);
 
+  // Pick images from gallery
+  const handlePickFromGallery = useCallback(async () => {
+    try {
+      const images = await ImagePicker.openPicker({
+        multiple: true,
+        mediaType: 'photo',
+      });
+
+      images.forEach((img) => {
+        addImage(img.path);
+      });
+    } catch (error: any) {
+      if (error.code !== 'E_PICKER_CANCELLED') {
+        Alert.alert('Error', error.message);
+      }
+    }
+  }, [addImage]);
+
   // Calculate totals
   const totalBeforeSize = comparisons.reduce((sum, c) => sum + c.beforeSize, 0);
   const totalAfterSize = comparisons.reduce((sum, c) => sum + c.afterSize, 0);
@@ -194,6 +217,16 @@ const MainContent: React.FC = () => {
             title={`Open Camera (${capturedImages.length} photos)`}
             onPress={() => setShowCamera(true)}
             disabled={processingStatus === 'processing'}
+          />
+        </View>
+
+        {/* Gallery Button */}
+        <View style={styles.buttonContainer}>
+          <Button
+            title="Pick from Gallery"
+            onPress={handlePickFromGallery}
+            disabled={processingStatus === 'processing'}
+            color="#34C759"
           />
         </View>
 
@@ -408,12 +441,11 @@ const MainContent: React.FC = () => {
         <View style={styles.infoContainer}>
           <Text style={styles.infoTitle}>How to use:</Text>
           <Text style={styles.infoText}>
-            1. Tap "Open Camera" to capture photos{'\n'}
-            2. Take multiple photos{'\n'}
-            3. Close camera when done{'\n'}
-            4. Tap "Compress & Add Watermark"{'\n'}
-            5. See before/after comparison table{'\n'}
-            6. View watermarked images below
+            1. Tap "Open Camera" or "Pick from Gallery"{'\n'}
+            2. Select or capture photos{'\n'}
+            3. Tap "Compress & Add Watermark"{'\n'}
+            4. See before/after comparison table{'\n'}
+            5. View watermarked images below
           </Text>
         </View>
       </ScrollView>
@@ -437,7 +469,7 @@ const MainContent: React.FC = () => {
             <ImageViewer
               imageUrls={[
                 {
-                  url: `file://${selectedImage.replace('file://', '')}`,
+                  url: `file://${selectedImage.replace('file://', '')}?t=${Date.now()}`,
                 },
               ]}
               enableSwipeDown

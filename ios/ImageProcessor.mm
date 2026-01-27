@@ -7,6 +7,9 @@
 @implementation ImageProcessorResult
 @end
 
+// Skip processing threshold - images below this size are already small enough
+static const NSInteger kSkipProcessingThresholdKB = 300;
+
 @implementation ImageProcessor
 
 #pragma mark - Public API
@@ -22,6 +25,20 @@
     result.outputPath = path; // Always return original path (like Android)
 
     @autoreleasepool {
+        // Check file size - skip processing if already small enough
+        NSError *attributesError = nil;
+        NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:&attributesError];
+        if (fileAttributes) {
+            NSInteger fileSizeKB = [fileAttributes fileSize] / 1024;
+            if (fileSizeKB < kSkipProcessingThresholdKB) {
+                NSLog(@"[ImageProcessor] Skipping processing for small image (%ldKB < %ldKB): %@",
+                      (long)fileSizeKB, (long)kSkipProcessingThresholdKB, path);
+                result.success = YES;
+                return result;
+            }
+            NSLog(@"[ImageProcessor] Processing image: %@ (%ldKB)", path, (long)fileSizeKB);
+        }
+
         // 1. Load image
         NSURL *fileURL = [NSURL fileURLWithPath:path];
         CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)fileURL, NULL);

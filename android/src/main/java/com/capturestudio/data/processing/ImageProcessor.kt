@@ -28,6 +28,9 @@ object ImageProcessor {
     private const val MIN_SIZE_KB_WATERMARK_ONLY = 400
     private const val MAX_SIZE_KB = 500
 
+    // Skip processing threshold - images below this size are already small enough
+    private const val SKIP_PROCESSING_THRESHOLD_KB = 300
+
     /**
      * Process a single image: rotate based on EXIF, add watermark, compress.
      *
@@ -49,7 +52,14 @@ object ImageProcessor {
                 throw IllegalArgumentException("File not found: $imagePath")
             }
 
-            Log.d(TAG, "Processing image: $imagePath")
+            // Check file size - skip processing if already small enough
+            val fileSizeKB = file.length() / 1024
+            if (fileSizeKB < SKIP_PROCESSING_THRESHOLD_KB) {
+                Log.d(TAG, "Skipping processing for small image (${fileSizeKB}KB < ${SKIP_PROCESSING_THRESHOLD_KB}KB): $imagePath")
+                return@runCatching
+            }
+
+            Log.d(TAG, "Processing image: $imagePath (${fileSizeKB}KB)")
 
             // 1. Load bitmap
             val originalBitmap = BitmapFactory.decodeFile(file.absolutePath)

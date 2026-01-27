@@ -14,7 +14,7 @@ Cross-platform native image compression and watermarking for React Native.
 ## Installation
 
 ```bash
-yarn add git+https://github.com/gandhi120/react-native-capture-studio.git
+npm install react-native-capture-studio
 ```
 
 ### iOS Setup

@@ -10486,6 +10486,7 @@ __metadata:
     react-native: 0.83.1
     react-native-blob-util: ^0.24.6
     react-native-builder-bob: ^0.32.0
+    react-native-image-crop-picker: ^0.51.1
     react-native-image-zoom-viewer: ^3.0.1
     react-native-safe-area-context: ^5.5.2
     react-native-vision-camera: ^4.7.3
@@ -10521,6 +10522,16 @@ __metadata:
     react-native: "*"
   languageName: unknown
   linkType: soft
+
+"react-native-image-crop-picker@npm:^0.51.1":
+  version: 0.51.1
+  resolution: "react-native-image-crop-picker@npm:0.51.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 56acf486af8861e2128cf2f23adbafd02c329281a73edf1543d1fc12dd177a9639258dc9d2b4c55e661ff3ffb0a184fafc2649a4ccf1d204b3e1368651ee1d05
+  languageName: node
+  linkType: hard
 
 "react-native-image-pan-zoom@npm:^2.1.12":
   version: 2.1.12
