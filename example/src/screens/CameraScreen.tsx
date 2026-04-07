@@ -24,9 +24,10 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
   const camera = useRef<Camera>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
+  const [cameraType, setCameraType] = useState<'back' | 'front'>('back');
 
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  const device = useCameraDevice(cameraType);
 
   const { addImage, capturedImages } = useCameraContext();
 
@@ -51,7 +52,6 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
       const imagePath =
         Platform.OS === 'ios' ? photo.path : `file://${photo.path}`;
 
-      console.log('Photo captured:', imagePath);
       addImage(imagePath);
 
       Alert.alert(
@@ -72,6 +72,10 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
 
   const toggleFlash = useCallback(() => {
     setFlash((prev) => (prev === 'off' ? 'on' : 'off'));
+  }, []);
+
+  const toggleCamera = useCallback(() => {
+    setCameraType((prev) => (prev === 'back' ? 'front' : 'back'));
   }, []);
 
   if (!hasPermission) {
@@ -116,6 +120,7 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
         device={device}
         isActive={true}
         photo={true}
+        outputOrientation="device"
       />
 
       {/* Top Bar */}
@@ -127,6 +132,12 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
         <TouchableOpacity style={styles.topButton} onPress={toggleFlash}>
           <Text style={styles.topButtonText}>
             Flash: {flash === 'on' ? 'ON' : 'OFF'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.topButton} onPress={toggleCamera}>
+          <Text style={styles.topButtonText}>
+            {cameraType === 'back' ? 'Selfie' : 'Rear'}
           </Text>
         </TouchableOpacity>
 

@@ -25,7 +25,4 @@ target_link_libraries(
   reactnative
 )
 
-# Only call if the function exists (added in RN 0.79+)
-if(COMMAND target_compile_reactnative_options)
-  target_compile_reactnative_options(react_codegen_RNCaptureStudioSpec PRIVATE)
-endif()
+target_compile_reactnative_options(react_codegen_RNCaptureStudioSpec PRIVATE)

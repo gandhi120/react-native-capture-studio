@@ -87,6 +87,17 @@ object ImageProcessor {
                 useJpeg = compressJpeg
             )
 
+            // 5. Reset EXIF orientation since pixels are already rotated
+            if (orientation != ExifInterface.ORIENTATION_NORMAL &&
+                orientation != ExifInterface.ORIENTATION_UNDEFINED) {
+                val newExif = ExifInterface(imagePath)
+                newExif.setAttribute(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL.toString()
+                )
+                newExif.saveAttributes()
+            }
+
             watermarkedBitmap.recycle()
 
             Log.d(TAG, "Successfully processed: $imagePath")
@@ -94,18 +105,29 @@ object ImageProcessor {
     }
 
     /**
-     * Rotate bitmap based on EXIF orientation.
+     * Rotate and/or flip bitmap based on EXIF orientation.
+     * Handles all 8 EXIF orientation cases including mirrored variants
+     * produced by front-facing (selfie) cameras.
      */
     private fun rotateBitmapIfNeeded(bitmap: Bitmap, orientation: Int): Bitmap {
-        val rotationAngle = when (orientation) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-            else -> return bitmap // No rotation needed
-        }
+        val matrix = Matrix()
 
-        val matrix = Matrix().apply {
-            postRotate(rotationAngle)
+        when (orientation) {
+            ExifInterface.ORIENTATION_NORMAL -> return bitmap
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+            ExifInterface.ORIENTATION_TRANSPOSE -> {
+                matrix.postRotate(90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_TRANSVERSE -> {
+                matrix.postRotate(-90f)
+                matrix.postScale(-1f, 1f)
+            }
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            else -> return bitmap
         }
 
         return Bitmap.createBitmap(

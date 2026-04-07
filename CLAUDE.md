@@ -19,6 +19,9 @@ yarn typecheck
 # Run tests
 yarn test
 
+# Run a single test file
+yarn test -- path/to/test.tsx
+
 # Build the library
 yarn prepare
 
@@ -30,40 +33,46 @@ yarn example ios        # Run on iOS
 # Fix lint errors
 yarn lint --fix
 
+# Clean build artifacts
+yarn clean
+
 # Publish new version
 yarn release
 ```
 
 ## Architecture
 
-### Turbo Module Structure
+### JS -> Native Bridge Flow
 
-- `src/NativeCaptureStudio.ts` - Turbo Module specification (TypeScript interface)
-- `src/index.tsx` - Main export, wraps native module with `openCaptureStudio(options)`
-- Codegen generates native bindings from the TypeScript spec
+The Turbo Module spec (`src/NativeCaptureStudio.ts`) defines three methods: `openCaptureStudio`, `processImages`, and `fetchProcessingResult`. Codegen generates native bindings from this spec into `android/generated/` and `ios/generated/` (configured via `codegenConfig` in `package.json`).
 
-### Android (Kotlin - MVVM Pattern)
+`src/index.tsx` is the public API. It re-exports the native methods and defines TypeScript types (`CaptureOptions`, `ImageProcessingItem`).
 
-- `android/src/main/java/com/capturestudio/`
-  - `CaptureStudioModule.kt` - Turbo Module bridge, implements `NativeCaptureStudioSpec`
-  - `CaptureStudioPackage.kt` - React Native package registration
-  - `domain/CaptureOptions.kt` - Configuration data class
-  - `data/CameraRepository.kt` - CameraX integration logic
-  - `ui/camera/` - MVVM components:
-    - `CameraActivity.kt` - Main camera UI with permission handling
-    - `CameraViewModel.kt` + `CameraUiState.kt` - State management
-    - `activity_camera.xml` - Layout
+### Async Processing Pattern (Both Platforms)
 
-Uses CameraX (camera-core, camera-camera2, camera-lifecycle, camera-view).
+Image processing uses a fire-and-poll pattern:
+1. `processImages()` enqueues work and immediately returns an operation ID (UUID)
+2. JS polls `fetchProcessingResult(operationId)` which returns JSON with `status: "processing" | "completed"` or rejects on failure
+3. On completion, results include per-image `success`, `outputPath`, and `error` fields
+
+### Android (Kotlin)
+
+- `CaptureStudioModule.kt` - Turbo Module bridge, extends generated `NativeCaptureStudioSpec`. Uses WorkManager to enqueue `ImageProcessingWorker` for background processing.
+- `data/processing/ImageProcessingWorker.kt` - `CoroutineWorker` that deserializes JSON images and delegates to `ImageProcessor`
+- `data/processing/ImageProcessor.kt` - Stateless singleton. Pipeline: load bitmap -> EXIF rotation -> watermark (yellow text on black bg, bottom-right) -> binary-search compression to 300-500KB target
+- `data/CameraRepository.kt` - CameraX integration
+- `ui/camera/` - MVVM: `CameraActivity` (permissions + UI) -> `CameraViewModel` -> `CameraUiState`
+
+Key Android dependencies: CameraX 1.3.4, WorkManager 2.9.0, ExifInterface 1.3.7.
 
 ### iOS (Objective-C++)
 
-- `ios/CaptureStudio.mm` - Turbo Module implementation with JSI integration
-- `ios/CaptureStudio.h` - Header file
+- `CaptureStudio.mm` - Turbo Module bridge. Uses `NSOperationQueue` for background processing and static dictionaries (`operationQueues`, `operationResults`) to track operations. `openCaptureStudio` is stubbed (TODO).
+- `ImageProcessor.mm` - Pipeline mirrors Android: CGImageSource load -> CIImage EXIF rotation -> CoreGraphics watermark -> binary-search compression via `CGImageDestination`. Prefers WebP with JPEG fallback (checks `CGImageDestinationCopyTypeIdentifiers` for WebP support).
 
-### Codegen Output
+### Platform Parity Notes
 
-Generated bindings in `android/generated/` and `ios/generated/`. Configured in `package.json` under `codegenConfig`.
+Both platforms use the same compression algorithm (binary search for quality between 0-100 targeting 300-500KB). Watermark rendering uses identical proportions (textSize = width/40, padding = width/50). Both strip `file://` prefix before processing and overwrite the original file in-place.
 
 ## Monorepo Structure
 
@@ -80,11 +89,11 @@ To edit native code:
 - Node v18 (see `.nvmrc`)
 - Yarn 3.6.1
 - Java 17+ (Android)
-- Android SDK API 30+ (minSdk)
-- Xcode (iOS/macOS)
+- Android SDK: minSdk 29, compileSdk configured via root project
+- Xcode (iOS/macOS), iOS 15.1+
 
 ## Commit Convention
 
 Uses conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
 
-Pre-commit hooks (lefthook) run ESLint and TypeScript checks automatically.
+Pre-commit hooks (lefthook) run ESLint and TypeScript checks. Commit messages are validated by commitlint.

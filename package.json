@@ -1,6 +1,6 @@
 {
   "name": "react-native-capture-studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-platform native image capture, editing, and compression studio for React Native",
   "source": "./src/index.tsx",
   "main": "./lib/commonjs/index.js",
