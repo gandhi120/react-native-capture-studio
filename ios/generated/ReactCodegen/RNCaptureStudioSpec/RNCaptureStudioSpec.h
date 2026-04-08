@@ -44,6 +44,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchProcessingResult:(NSString *)operationId
                       resolve:(RCTPromiseResolveBlock)resolve
                        reject:(RCTPromiseRejectBlock)reject;
+- (void)generateThumbnail:(NSDictionary *)item
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject;
 
 @end
 

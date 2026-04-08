@@ -17,6 +17,11 @@ export type ImageProcessingItem = {
   replaceOriginal?: boolean; // true = override original, false = create new file (default: true)
 };
 
+export type ThumbnailItem = {
+  localPath: string;
+  maxSize?: number;
+};
+
 export function openCaptureStudio(options: CaptureOptions = {}): Promise<any> {
   return CaptureStudio.openCaptureStudio(options);
 }
@@ -27,4 +32,8 @@ export function processImages(images: ImageProcessingItem[]): Promise<string> {
 
 export function fetchProcessingResult(operationId: string): Promise<string> {
   return CaptureStudio.fetchProcessingResult(operationId);
+}
+
+export function generateThumbnail(item: ThumbnailItem): Promise<string> {
+  return CaptureStudio.generateThumbnail(item);
 }

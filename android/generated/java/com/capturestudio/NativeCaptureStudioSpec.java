@@ -45,4 +45,8 @@ public abstract class NativeCaptureStudioSpec extends ReactContextBaseJavaModule
   @ReactMethod
   @DoNotStrip
   public abstract void fetchProcessingResult(String operationId, Promise promise);
+
+  @ReactMethod
+  @DoNotStrip
+  public abstract void generateThumbnail(ReadableMap item, Promise promise);
 }

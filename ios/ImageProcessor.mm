@@ -380,4 +380,64 @@
     return success;
 }
 
+#pragma mark - Thumbnail Generation
+
++ (BOOL)generateThumbnailAtPath:(NSString *)path
+                        maxSize:(NSInteger)maxSize
+{
+    @autoreleasepool {
+        NSURL *fileURL = [NSURL fileURLWithPath:path];
+        CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)fileURL, NULL);
+
+        if (!source) {
+            return NO;
+        }
+
+        // Request a thumbnail at max dimension, downsampling during decode
+        // This is MEMORY EFFICIENT — does NOT load the full image into memory
+        NSDictionary *options = @{
+            (NSString *)kCGImageSourceThumbnailMaxPixelSize: @(maxSize),
+            (NSString *)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
+            (NSString *)kCGImageSourceCreateThumbnailWithTransform: @YES,
+        };
+
+        CGImageRef thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, (__bridge CFDictionaryRef)options);
+        CFRelease(source);
+
+        if (!thumbnail) {
+            return NO;
+        }
+
+        // Build thumbnail output path: /path/to/IMG_123.jpg -> /path/to/IMG_123_thumb.jpg
+        NSString *nameWithoutExt = [path stringByDeletingPathExtension];
+        NSString *thumbPath = [NSString stringWithFormat:@"%@_thumb.jpg", nameWithoutExt];
+
+        // Write as JPEG with quality 60%
+        NSURL *thumbURL = [NSURL fileURLWithPath:thumbPath];
+        CGImageDestinationRef destination = CGImageDestinationCreateWithURL(
+            (__bridge CFURLRef)thumbURL,
+            (__bridge CFStringRef)UTTypeJPEG.identifier,
+            1,
+            NULL
+        );
+
+        if (!destination) {
+            CGImageRelease(thumbnail);
+            return NO;
+        }
+
+        NSDictionary *destOptions = @{
+            (__bridge NSString *)kCGImageDestinationLossyCompressionQuality: @(0.6)
+        };
+
+        CGImageDestinationAddImage(destination, thumbnail, (__bridge CFDictionaryRef)destOptions);
+        BOOL success = CGImageDestinationFinalize(destination);
+
+        CFRelease(destination);
+        CGImageRelease(thumbnail);
+
+        return success;
+    }
+}
+
 @end

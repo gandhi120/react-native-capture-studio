@@ -27,11 +27,17 @@ static facebook::jsi::Value __hostFunction_NativeCaptureStudioSpecJSI_fetchProce
   return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "fetchProcessingResult", "(Ljava/lang/String;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
 }
 
+static facebook::jsi::Value __hostFunction_NativeCaptureStudioSpecJSI_generateThumbnail(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
+  static jmethodID cachedMethodId = nullptr;
+  return static_cast<JavaTurboModule &>(turboModule).invokeJavaMethod(rt, PromiseKind, "generateThumbnail", "(Lcom/facebook/react/bridge/ReadableMap;Lcom/facebook/react/bridge/Promise;)V", args, count, cachedMethodId);
+}
+
 NativeCaptureStudioSpecJSI::NativeCaptureStudioSpecJSI(const JavaTurboModule::InitParams &params)
   : JavaTurboModule(params) {
   methodMap_["openCaptureStudio"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_openCaptureStudio};
   methodMap_["processImages"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_processImages};
   methodMap_["fetchProcessingResult"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_fetchProcessingResult};
+  methodMap_["generateThumbnail"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_generateThumbnail};
 }
 
 std::shared_ptr<TurboModule> RNCaptureStudioSpec_ModuleProvider(const std::string &moduleName, const JavaTurboModule::InitParams &params) {

@@ -17,6 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
                                 compressJpeg:(BOOL)compressJpeg
                              replaceOriginal:(BOOL)replaceOriginal;
 
++ (BOOL)generateThumbnailAtPath:(NSString *)path
+                        maxSize:(NSInteger)maxSize;
+
 @end
 
 NS_ASSUME_NONNULL_END

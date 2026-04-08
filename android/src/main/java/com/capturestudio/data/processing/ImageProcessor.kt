@@ -105,6 +105,84 @@ object ImageProcessor {
     }
 
     /**
+     * Generate a small thumbnail from an image file.
+     * Uses BitmapFactory.Options.inSampleSize for memory-efficient downsampling.
+     * Does NOT load the full bitmap into memory.
+     *
+     * @param imagePath Path to the source image
+     * @param maxSize Max pixel dimension for the thumbnail (e.g. 200)
+     * @return Result with thumbnail path on success
+     */
+    fun generateThumbnail(imagePath: String, maxSize: Int): Result<String> {
+        return runCatching {
+            val file = File(imagePath)
+            if (!file.exists()) {
+                throw IllegalArgumentException("File not found: $imagePath")
+            }
+
+            // Step 1: Decode only bounds (no memory allocation for pixels)
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(imagePath, options)
+
+            val imageWidth = options.outWidth
+            val imageHeight = options.outHeight
+
+            // Step 2: Calculate inSampleSize for memory-efficient downsampling
+            var inSampleSize = 1
+            if (imageWidth > maxSize || imageHeight > maxSize) {
+                val halfWidth = imageWidth / 2
+                val halfHeight = imageHeight / 2
+                while ((halfWidth / inSampleSize) >= maxSize && (halfHeight / inSampleSize) >= maxSize) {
+                    inSampleSize *= 2
+                }
+            }
+
+            // Step 3: Decode with inSampleSize (loads only ~thumbnail-sized bitmap)
+            val decodeOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+            }
+            val sampledBitmap = BitmapFactory.decodeFile(imagePath, decodeOptions)
+                ?: throw IllegalStateException("Failed to decode image: $imagePath")
+
+            // Step 4: Scale to exact max size
+            val scale = maxSize.toFloat() / maxOf(sampledBitmap.width, sampledBitmap.height)
+            val targetWidth = (sampledBitmap.width * scale).toInt()
+            val targetHeight = (sampledBitmap.height * scale).toInt()
+            val thumbnail = Bitmap.createScaledBitmap(sampledBitmap, targetWidth, targetHeight, true)
+
+            if (thumbnail !== sampledBitmap) {
+                sampledBitmap.recycle()
+            }
+
+            // Step 5: Handle EXIF rotation
+            val exif = ExifInterface(imagePath)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+            val rotatedThumbnail = rotateBitmapIfNeeded(thumbnail, orientation)
+            if (rotatedThumbnail !== thumbnail) {
+                thumbnail.recycle()
+            }
+
+            // Step 6: Save as JPEG
+            val nameWithoutExt = imagePath.substringBeforeLast(".")
+            val thumbPath = "${nameWithoutExt}_thumb.jpg"
+
+            FileOutputStream(thumbPath).use { fos ->
+                rotatedThumbnail.compress(Bitmap.CompressFormat.JPEG, 60, fos)
+            }
+
+            rotatedThumbnail.recycle()
+
+            Log.d(TAG, "Generated thumbnail: $thumbPath")
+            thumbPath
+        }
+    }
+
+    /**
      * Rotate and/or flip bitmap based on EXIF orientation.
      * Handles all 8 EXIF orientation cases including mirrored variants
      * produced by front-facing (selfie) cameras.

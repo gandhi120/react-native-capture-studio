@@ -17,6 +17,7 @@ import ImageViewer from 'react-native-image-zoom-viewer';
 import {
   processImages,
   fetchProcessingResult,
+  generateThumbnail,
   type ImageProcessingItem,
 } from 'react-native-capture-studio';
 import { CameraProvider, useCameraContext } from './context/CameraContext';
@@ -43,6 +44,13 @@ const formatBytes = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+interface ThumbnailInfo {
+  path: string;
+  fileName: string;
+  size: number;
+  timeMs: number;
+}
+
 interface ImageComparison {
   path: string;
   fileName: string;
@@ -67,6 +75,11 @@ const MainContent: React.FC = () => {
 
   const [comparisons, setComparisons] = useState<ImageComparison[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [thumbnails, setThumbnails] = useState<ThumbnailInfo[]>([]);
+  const [thumbnailSize, setThumbnailSize] = useState(200);
+  const [showSizeDropdown, setShowSizeDropdown] = useState(false);
+
+  const sizeOptions = [100, 150, 200];
 
   // Get file sizes before processing
   const captureFileSizes = useCallback(async () => {
@@ -172,7 +185,38 @@ const MainContent: React.FC = () => {
   const handleClearAll = useCallback(() => {
     clearImages();
     setComparisons([]);
+    setThumbnails([]);
   }, [clearImages]);
+
+  const handleGenerateThumbnails = useCallback(async () => {
+    if (capturedImages.length === 0) {
+      Alert.alert('No Images', 'Capture some images first');
+      return;
+    }
+
+    try {
+      const thumbInfos: ThumbnailInfo[] = [];
+      for (const img of capturedImages) {
+        const start = Date.now();
+        const thumbPath = await generateThumbnail({
+          localPath: img.path,
+          maxSize: thumbnailSize,
+        });
+        const timeMs = Date.now() - start;
+        const size = await getFileSize(thumbPath);
+        thumbInfos.push({
+          path: thumbPath,
+          fileName: thumbPath.split('/').pop() || 'Unknown',
+          size,
+          timeMs,
+        });
+      }
+      setThumbnails(thumbInfos);
+      Alert.alert('Done', `Generated ${thumbInfos.length} thumbnails`);
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  }, [capturedImages, thumbnailSize]);
 
   // Calculate totals
   const totalBeforeSize = comparisons.reduce((sum, c) => sum + c.beforeSize, 0);
@@ -207,6 +251,57 @@ const MainContent: React.FC = () => {
             }
           />
         </View>
+
+        {/* Thumbnail Size Selector + Button */}
+        <View style={styles.thumbnailControls}>
+          <TouchableOpacity
+            style={styles.sizeSelector}
+            onPress={() => setShowSizeDropdown(!showSizeDropdown)}
+          >
+            <Text style={styles.sizeSelectorText}>
+              {thumbnailSize}x{thumbnailSize}
+            </Text>
+            <Text style={styles.sizeSelectorArrow}>
+              {showSizeDropdown ? '\u25B2' : '\u25BC'}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.thumbnailButtonWrap}>
+            <Button
+              title="Generate Thumbnails"
+              onPress={handleGenerateThumbnails}
+              color="#5856D6"
+              disabled={
+                capturedImages.length === 0 || processingStatus === 'processing'
+              }
+            />
+          </View>
+        </View>
+        {showSizeDropdown && (
+          <View style={styles.dropdown}>
+            {sizeOptions.map((size) => (
+              <TouchableOpacity
+                key={size}
+                style={[
+                  styles.dropdownItem,
+                  size === thumbnailSize && styles.dropdownItemActive,
+                ]}
+                onPress={() => {
+                  setThumbnailSize(size);
+                  setShowSizeDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownItemText,
+                    size === thumbnailSize && styles.dropdownItemTextActive,
+                  ]}
+                >
+                  {size}x{size}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Clear Button */}
         <View style={styles.buttonContainer}>
@@ -252,6 +347,36 @@ const MainContent: React.FC = () => {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Thumbnails Preview */}
+        {thumbnails.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>
+              Thumbnails ({thumbnails.length})
+            </Text>
+            {thumbnails.map((thumb, index) => (
+              <View key={index} style={styles.thumbnailCard}>
+                <Image
+                  source={{
+                    uri: `file://${thumb.path}?t=${Date.now()}`,
+                  }}
+                  style={styles.thumbnailImage}
+                />
+                <View style={styles.thumbnailInfo}>
+                  <Text style={styles.thumbnailName} numberOfLines={1}>
+                    {thumb.fileName}
+                  </Text>
+                  <Text style={styles.thumbnailSize}>
+                    {formatBytes(thumb.size)} · {thumb.timeMs}ms
+                  </Text>
+                  <Text style={styles.thumbnailPath} selectable>
+                    {thumb.path}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         )}
 
@@ -742,5 +867,96 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+  // Thumbnail controls
+  thumbnailControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+    gap: 10,
+  },
+  sizeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#5856D6',
+  },
+  sizeSelectorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5856D6',
+  },
+  sizeSelectorArrow: {
+    fontSize: 10,
+    color: '#5856D6',
+    marginLeft: 6,
+  },
+  thumbnailButtonWrap: {
+    flex: 1,
+  },
+  dropdown: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#5856D6',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdownItemTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  // Thumbnail styles
+  thumbnailCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  thumbnailImage: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#E5E5EA',
+  },
+  thumbnailInfo: {
+    flex: 1,
+    padding: 10,
+    justifyContent: 'center',
+  },
+  thumbnailName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+  },
+  thumbnailSize: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5856D6',
+    marginTop: 4,
+  },
+  thumbnailPath: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 16,
   },
 });

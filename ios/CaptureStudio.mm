@@ -175,6 +175,41 @@ RCT_EXPORT_MODULE()
     }
 }
 
+#pragma mark - generateThumbnail
+
+- (void)generateThumbnail:(NSDictionary *)item
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject
+{
+    NSString *localPath = item[@"localPath"];
+    NSNumber *maxSizeNum = item[@"maxSize"];
+
+    if (!localPath || localPath.length == 0) {
+        reject(@"INVALID_INPUT", @"localPath is required", nil);
+        return;
+    }
+
+    NSInteger maxSize = maxSizeNum ? [maxSizeNum integerValue] : 100;
+
+    // Remove file:// prefix if present
+    NSString *cleanPath = [localPath stringByReplacingOccurrencesOfString:@"file://"
+                                                               withString:@""];
+
+    // Run on background queue to avoid blocking JS thread
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        BOOL success = [ImageProcessor generateThumbnailAtPath:cleanPath maxSize:maxSize];
+
+        if (success) {
+            // Return the thumbnail path
+            NSString *nameWithoutExt = [cleanPath stringByDeletingPathExtension];
+            NSString *thumbPath = [NSString stringWithFormat:@"%@_thumb.jpg", nameWithoutExt];
+            resolve(thumbPath);
+        } else {
+            reject(@"THUMBNAIL_FAILED", @"Failed to generate thumbnail", nil);
+        }
+    });
+}
+
 #pragma mark - TurboModule
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

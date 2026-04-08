@@ -25,6 +25,7 @@ protected:
     methodMap_["openCaptureStudio"] = MethodMetadata {.argCount = 1, .invoker = __openCaptureStudio};
     methodMap_["processImages"] = MethodMetadata {.argCount = 1, .invoker = __processImages};
     methodMap_["fetchProcessingResult"] = MethodMetadata {.argCount = 1, .invoker = __fetchProcessingResult};
+    methodMap_["generateThumbnail"] = MethodMetadata {.argCount = 1, .invoker = __generateThumbnail};
   }
   
 private:
@@ -50,6 +51,14 @@ private:
       "Expected fetchProcessingResult(...) to have 2 parameters");
     return bridging::callFromJs<jsi::Value>(rt, &T::fetchProcessingResult,  static_cast<NativeCaptureStudioCxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
       count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asString(rt));
+  }
+
+  static jsi::Value __generateThumbnail(jsi::Runtime &rt, TurboModule &turboModule, const jsi::Value* args, size_t count) {
+    static_assert(
+      bridging::getParameterCount(&T::generateThumbnail) == 2,
+      "Expected generateThumbnail(...) to have 2 parameters");
+    return bridging::callFromJs<jsi::Value>(rt, &T::generateThumbnail,  static_cast<NativeCaptureStudioCxxSpec*>(&turboModule)->jsInvoker_, static_cast<T*>(&turboModule),
+      count <= 0 ? throw jsi::JSError(rt, "Expected argument in position 0 to be passed") : args[0].asObject(rt));
   }
 };
 

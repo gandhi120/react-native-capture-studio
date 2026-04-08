@@ -38,6 +38,10 @@ namespace facebook::react {
       return static_cast<ObjCTurboModule&>(turboModule).invokeObjCMethod(rt, PromiseKind, "fetchProcessingResult", @selector(fetchProcessingResult:resolve:reject:), args, count);
     }
 
+    static facebook::jsi::Value __hostFunction_NativeCaptureStudioSpecJSI_generateThumbnail(facebook::jsi::Runtime& rt, TurboModule &turboModule, const facebook::jsi::Value* args, size_t count) {
+      return static_cast<ObjCTurboModule&>(turboModule).invokeObjCMethod(rt, PromiseKind, "generateThumbnail", @selector(generateThumbnail:resolve:reject:), args, count);
+    }
+
   NativeCaptureStudioSpecJSI::NativeCaptureStudioSpecJSI(const ObjCTurboModule::InitParams &params)
     : ObjCTurboModule(params) {
       
@@ -48,6 +52,9 @@ namespace facebook::react {
         
         
         methodMap_["fetchProcessingResult"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_fetchProcessingResult};
+        
+        
+        methodMap_["generateThumbnail"] = MethodMetadata {1, __hostFunction_NativeCaptureStudioSpecJSI_generateThumbnail};
         
   }
 } // namespace facebook::react

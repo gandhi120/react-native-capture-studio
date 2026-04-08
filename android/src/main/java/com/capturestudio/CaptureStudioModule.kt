@@ -6,6 +6,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.capturestudio.data.processing.ImageProcessor
 import com.capturestudio.data.processing.ImageProcessingWorker
 import com.capturestudio.ui.camera.CameraActivity
 import com.facebook.react.bridge.Promise
@@ -149,6 +150,39 @@ class CaptureStudioModule(reactContext: ReactApplicationContext) :
             Log.e(TAG, "Unexpected error", e)
             promise.reject("ERROR", e.message, e)
         }
+    }
+
+    /**
+     * Generate a thumbnail for a single image.
+     * Runs on a background thread.
+     *
+     * @param item Map with localPath (string) and maxSize (int)
+     * @param promise Resolves with thumbnail file path
+     */
+    override fun generateThumbnail(item: ReadableMap, promise: Promise) {
+        val localPath = item.getString("localPath") ?: ""
+        val maxSize = if (item.hasKey("maxSize")) item.getInt("maxSize") else 100
+
+        if (localPath.isEmpty()) {
+            promise.reject("INVALID_INPUT", "localPath is required")
+            return
+        }
+
+        val cleanPath = localPath.replace("file://", "")
+
+        Thread {
+            try {
+                val result = ImageProcessor.generateThumbnail(cleanPath, maxSize)
+                if (result.isSuccess) {
+                    promise.resolve(result.getOrNull())
+                } else {
+                    promise.reject("THUMBNAIL_FAILED", result.exceptionOrNull()?.message ?: "Unknown error")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Thumbnail generation failed", e)
+                promise.reject("THUMBNAIL_FAILED", e.message, e)
+            }
+        }.start()
     }
 
     /**
