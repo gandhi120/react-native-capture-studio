@@ -1,22 +1,23 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 
-export interface CapturedImage {
+export type ImageStatus = 'waiting' | 'compressing' | 'completed' | 'error';
+
+export interface ImageItem {
   path: string;
   timestamp: string;
-  processed: boolean;
+  beforeSize: number | null;
+  afterSize: number | null;
+  status: ImageStatus;
+  startedAt?: number;
+  finishedAt?: number;
+  errorMessage?: string;
 }
 
 interface CameraContextType {
-  capturedImages: CapturedImage[];
-  addImage: (path: string) => void;
-  clearImages: () => void;
-  markProcessed: (path: string) => void;
-  processingStatus: 'idle' | 'processing' | 'completed' | 'error';
-  setProcessingStatus: (
-    status: 'idle' | 'processing' | 'completed' | 'error'
-  ) => void;
-  operationId: string | null;
-  setOperationId: (id: string | null) => void;
+  queue: ImageItem[];
+  enqueueImage: (path: string, timestamp: string, beforeSize: number) => void;
+  clearQueue: () => void;
+  patchItem: (path: string, patch: Partial<ImageItem>) => void;
 }
 
 const CameraContext = createContext<CameraContextType | undefined>(undefined);
@@ -24,45 +25,37 @@ const CameraContext = createContext<CameraContextType | undefined>(undefined);
 export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
-  const [processingStatus, setProcessingStatus] = useState<
-    'idle' | 'processing' | 'completed' | 'error'
-  >('idle');
-  const [operationId, setOperationId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<ImageItem[]>([]);
 
-  const addImage = useCallback((path: string) => {
-    const newImage: CapturedImage = {
-      path,
-      timestamp: new Date().toLocaleString(),
-      processed: false,
-    };
-    setCapturedImages((prev) => [...prev, newImage]);
+  const enqueueImage = useCallback(
+    (path: string, timestamp: string, beforeSize: number) => {
+      setQueue((prev) => [
+        ...prev,
+        {
+          path,
+          timestamp,
+          beforeSize,
+          afterSize: null,
+          status: 'waiting',
+        },
+      ]);
+    },
+    []
+  );
+
+  const clearQueue = useCallback(() => {
+    setQueue([]);
   }, []);
 
-  const clearImages = useCallback(() => {
-    setCapturedImages([]);
-    setProcessingStatus('idle');
-    setOperationId(null);
-  }, []);
-
-  const markProcessed = useCallback((path: string) => {
-    setCapturedImages((prev) =>
-      prev.map((img) => (img.path === path ? { ...img, processed: true } : img))
+  const patchItem = useCallback((path: string, patch: Partial<ImageItem>) => {
+    setQueue((prev) =>
+      prev.map((item) => (item.path === path ? { ...item, ...patch } : item))
     );
   }, []);
 
   return (
     <CameraContext.Provider
-      value={{
-        capturedImages,
-        addImage,
-        clearImages,
-        markProcessed,
-        processingStatus,
-        setProcessingStatus,
-        operationId,
-        setOperationId,
-      }}
+      value={{ queue, enqueueImage, clearQueue, patchItem }}
     >
       {children}
     </CameraContext.Provider>
@@ -70,9 +63,9 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export const useCameraContext = (): CameraContextType => {
-  const context = useContext(CameraContext);
-  if (!context) {
+  const ctx = useContext(CameraContext);
+  if (!ctx) {
     throw new Error('useCameraContext must be used within a CameraProvider');
   }
-  return context;
+  return ctx;
 };

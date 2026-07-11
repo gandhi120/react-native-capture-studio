@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   Linking,
+  Animated,
 } from 'react-native';
 import {
   Camera,
@@ -15,6 +16,9 @@ import {
   type PhotoFile,
 } from 'react-native-vision-camera';
 import { useCameraContext } from '../context/CameraContext';
+import { getFileSize } from '../utils/format';
+
+type Mode = 'single' | 'burst';
 
 interface CameraScreenProps {
   onClose: () => void;
@@ -25,11 +29,18 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [flash, setFlash] = useState<'off' | 'on'>('off');
   const [cameraType, setCameraType] = useState<'back' | 'front'>('back');
+  const [mode, setMode] = useState<Mode>('burst');
+  const [shotCount, setShotCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTranslate = useRef(new Animated.Value(-20)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice(cameraType);
 
-  const { addImage, capturedImages } = useCameraContext();
+  const { enqueueImage, queue } = useCameraContext();
 
   useEffect(() => {
     if (!hasPermission) {
@@ -37,51 +48,86 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
     }
   }, [hasPermission, requestPermission]);
 
+  const showToast = useCallback(
+    (msg: string) => {
+      setToastMessage(msg);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      Animated.parallel([
+        Animated.timing(toastOpacity, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastTranslate, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      toastTimer.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(toastOpacity, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(toastTranslate, {
+            toValue: -20,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 700);
+    },
+    [toastOpacity, toastTranslate]
+  );
+
   const takePhoto = useCallback(async () => {
     if (!camera.current || isCapturing) return;
-
     try {
       setIsCapturing(true);
-
       const photo: PhotoFile = await camera.current.takePhoto({
         flash: flash,
         enableShutterSound: true,
       });
-
-      // The path is in the cache directory
       const imagePath =
         Platform.OS === 'ios' ? photo.path : `file://${photo.path}`;
+      const beforeSize = await getFileSize(imagePath);
+      const timestamp = new Date().toLocaleString();
+      enqueueImage(imagePath, timestamp, beforeSize);
 
-      addImage(imagePath);
+      const nextCount = shotCount + 1;
+      setShotCount(nextCount);
 
-      Alert.alert(
-        'Photo Captured',
-        `Saved to: ${imagePath}\n\nTotal photos: ${capturedImages.length + 1}`,
-        [
+      if (mode === 'burst') {
+        showToast(`Captured #${nextCount}`);
+      } else {
+        Alert.alert('Photo Captured', `Added to queue (#${nextCount})`, [
           { text: 'Take More', style: 'default' },
           { text: 'Done', onPress: onClose },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Failed to take photo:', error);
-      Alert.alert('Error', `Failed to capture photo: ${error.message}`);
+        ]);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to capture photo: ${message}`);
     } finally {
       setIsCapturing(false);
     }
-  }, [flash, isCapturing, addImage, capturedImages.length, onClose]);
+  }, [flash, isCapturing, enqueueImage, onClose, mode, shotCount, showToast]);
 
-  const toggleFlash = useCallback(() => {
-    setFlash((prev) => (prev === 'off' ? 'on' : 'off'));
-  }, []);
-
-  const toggleCamera = useCallback(() => {
-    setCameraType((prev) => (prev === 'back' ? 'front' : 'back'));
-  }, []);
+  const toggleFlash = useCallback(
+    () => setFlash((p) => (p === 'off' ? 'on' : 'off')),
+    []
+  );
+  const toggleCamera = useCallback(
+    () => setCameraType((p) => (p === 'back' ? 'front' : 'back')),
+    []
+  );
 
   if (!hasPermission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.permissionText}>Camera permission required</Text>
+      <View style={styles.fallback}>
+        <Text style={styles.fallbackText}>Camera permission required</Text>
         <TouchableOpacity
           style={styles.permissionButton}
           onPress={() => {
@@ -94,8 +140,8 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
         >
           <Text style={styles.permissionButtonText}>Grant Permission</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeButtonText}>Close</Text>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeBtnText}>Close</Text>
         </TouchableOpacity>
       </View>
     );
@@ -103,10 +149,10 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
 
   if (!device) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.permissionText}>No camera device found</Text>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeButtonText}>Close</Text>
+      <View style={styles.fallback}>
+        <Text style={styles.fallbackText}>No camera device found</Text>
+        <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <Text style={styles.closeBtnText}>Close</Text>
         </TouchableOpacity>
       </View>
     );
@@ -123,30 +169,76 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
         outputOrientation="device"
       />
 
-      {/* Top Bar */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.topButton} onPress={onClose}>
-          <Text style={styles.topButtonText}>Close</Text>
+          <Text style={styles.topButtonText}>✕</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.topButton} onPress={toggleFlash}>
-          <Text style={styles.topButtonText}>
-            Flash: {flash === 'on' ? 'ON' : 'OFF'}
+        <View style={styles.modeSwitch}>
+          <TouchableOpacity
+            style={[styles.modeOpt, mode === 'single' && styles.modeOptActive]}
+            onPress={() => setMode('single')}
+          >
+            <Text
+              style={[
+                styles.modeOptText,
+                mode === 'single' && styles.modeOptTextActive,
+              ]}
+            >
+              Single
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeOpt, mode === 'burst' && styles.modeOptActive]}
+            onPress={() => setMode('burst')}
+          >
+            <Text
+              style={[
+                styles.modeOptText,
+                mode === 'burst' && styles.modeOptTextActive,
+              ]}
+            >
+              Burst
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.topButton} onPress={onClose}>
+          <Text style={styles.topButtonText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.subBar}>
+        <TouchableOpacity style={styles.subBtn} onPress={toggleFlash}>
+          <Text style={styles.subBtnText}>
+            ⚡ {flash === 'on' ? 'On' : 'Off'}
           </Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.topButton} onPress={toggleCamera}>
-          <Text style={styles.topButtonText}>
-            {cameraType === 'back' ? 'Selfie' : 'Rear'}
+        <TouchableOpacity style={styles.subBtn} onPress={toggleCamera}>
+          <Text style={styles.subBtnText}>
+            {cameraType === 'back' ? '⟳ Selfie' : '⟳ Rear'}
           </Text>
         </TouchableOpacity>
-
         <View style={styles.counterBadge}>
-          <Text style={styles.counterText}>{capturedImages.length}</Text>
+          <Text style={styles.counterText}>{queue.length}</Text>
         </View>
       </View>
 
-      {/* Bottom Bar */}
+      {toastMessage && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            {
+              opacity: toastOpacity,
+              transform: [{ translateY: toastTranslate }],
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
+
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={[
@@ -160,10 +252,9 @@ export const CameraScreen: React.FC<CameraScreenProps> = ({ onClose }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Instructions */}
       <View style={styles.instructions}>
         <Text style={styles.instructionText}>
-          Tap the button to capture photos
+          {mode === 'burst' ? 'Burst mode — tap rapidly' : 'Tap to capture'}
         </Text>
       </View>
     </View>
@@ -174,8 +265,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'black',
-    justifyContent: 'center',
+  },
+  fallback: {
+    flex: 1,
+    backgroundColor: 'black',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  fallbackText: {
+    color: 'white',
+    fontSize: 18,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   topBar: {
     position: 'absolute',
@@ -185,35 +287,95 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   topButton: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    minWidth: 56,
+    alignItems: 'center',
   },
   topButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 999,
+    padding: 4,
+  },
+  modeOpt: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  modeOptActive: {
+    backgroundColor: 'white',
+  },
+  modeOptText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modeOptTextActive: {
+    color: '#0F172A',
+  },
+  subBar: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  subBtn: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  subBtnText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: '600',
   },
   counterBadge: {
-    backgroundColor: '#007AFF',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    backgroundColor: '#2563EB',
+    minWidth: 36,
+    height: 28,
+    borderRadius: 14,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   counterText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  toast: {
+    position: 'absolute',
+    top: 170,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+  },
+  toastText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   bottomBar: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 60,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -226,7 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: 'rgba(255,255,255,0.5)',
+    borderColor: 'rgba(255,255,255,0.45)',
   },
   captureButtonDisabled: {
     opacity: 0.5,
@@ -239,44 +401,38 @@ const styles = StyleSheet.create({
   },
   instructions: {
     position: 'absolute',
-    bottom: 150,
+    bottom: 160,
     left: 0,
     right: 0,
     alignItems: 'center',
   },
   instructionText: {
     color: 'white',
-    fontSize: 14,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  permissionText: {
-    color: 'white',
-    fontSize: 18,
-    marginBottom: 20,
-    textAlign: 'center',
+    fontSize: 13,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
   permissionButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 20,
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 26,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 16,
   },
   permissionButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  closeButton: {
+  closeBtn: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
     borderRadius: 10,
   },
-  closeButtonText: {
+  closeBtnText: {
     color: 'white',
     fontSize: 16,
   },

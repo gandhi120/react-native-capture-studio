@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.83.1",
+    "buffer": "^6.0.3",
+    "jpeg-js": "^0.4.4",
     "react": "19.2.0",
     "react-native": "0.83.1",
     "react-native-blob-util": "^0.24.6",
     "react-native-image-zoom-viewer": "^3.0.1",
+    "react-native-reanimated": "^4.3.1",
     "react-native-safe-area-context": "^5.5.2",
-    "react-native-vision-camera": "^4.7.3"
+    "react-native-vision-camera": "^4.7.3",
+    "react-native-worklets": "^0.8.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
