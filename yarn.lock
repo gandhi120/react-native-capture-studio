@@ -3100,20 +3100,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/prop-types@npm:*":
-  version: 15.7.15
-  resolution: "@types/prop-types@npm:15.7.15"
-  checksum: 31aa2f59b28f24da6fb4f1d70807dae2aedfce090ec63eaf9ea01727a9533ef6eaf017de5bff99fbccad7d1c9e644f52c6c2ba30869465dd22b1a7221c29f356
-  languageName: node
-  linkType: hard
-
-"@types/react@npm:^18.2.44":
-  version: 18.3.27
-  resolution: "@types/react@npm:18.3.27"
+"@types/react@npm:^19.0.0":
+  version: 19.2.18
+  resolution: "@types/react@npm:19.2.18"
   dependencies:
-    "@types/prop-types": "*"
     csstype: ^3.2.2
-  checksum: c74d0ab5155226998a52b568f6280536205f8fe4317f77bd5d5258bc131cc9134a2db68dc818cb8e8402a2f229843c4a5bde339faf7e64d441630e569a9e5421
+  checksum: 01e42509fd2dbe05652bbe50f69883c79f6c5b24e5f306307e1f95eaf7eddf1cdd2646a1e056c6088d2c4403d5e2ab72226e31001c6564630529901514872fb1
   languageName: node
   linkType: hard
 
@@ -10502,7 +10494,7 @@ __metadata:
     "@react-native/eslint-config": ^0.73.1
     "@release-it/conventional-changelog": ^9.0.2
     "@types/jest": ^29.5.5
-    "@types/react": ^18.2.44
+    "@types/react": ^19.0.0
     commitlint: ^17.0.2
     del-cli: ^5.1.0
     eslint: ^8.51.0
@@ -10517,8 +10509,8 @@ __metadata:
     turbo: ^1.10.7
     typescript: ^5.2.2
   peerDependencies:
-    react: "*"
-    react-native: "*"
+    react: ">=19.0.0"
+    react-native: ">=0.82.0"
   languageName: unknown
   linkType: soft
 

@@ -1920,7 +1920,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-capture-studio (0.1.1):
+  - react-native-capture-studio (0.2.0):
     - boost
     - DoubleConversion
     - fast_float
@@ -2900,7 +2900,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 7b72a669e94662359dad4f42b5af005eb24b4e83
   React-microtasksnativemodule: cdc02da075f2857803ed63f24f5f72fc40e094c0
   react-native-blob-util: 04189c38b188b2b76ee453be34765241c552547f
-  react-native-capture-studio: 29d2b41cc35bba3511a1aa9d8caa094f52fdcf21
+  react-native-capture-studio: 7e598e32f4a0628124b83f6a4bf0338d84a1f710
   react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
   React-NativeModulesApple: a2c3d2cbec893956a5b3e4060322db2984fff75b
   React-networking: 3f98bd96893a294376e7e03730947a08d474c380
@@ -2939,6 +2939,6 @@ SPEC CHECKSUMS:
   VisionCamera: 7187b3dac1ff3071234ead959ce311875748e14f
   Yoga: 5456bb010373068fc92221140921b09d126b116e
 
-PODFILE CHECKSUM: 7c38cf427f01c7273f440f91420ee9d8778c0458
+PODFILE CHECKSUM: ea3a50ae540491c147be18440eb4c78969c6f36d
 
 COCOAPODS: 1.15.2

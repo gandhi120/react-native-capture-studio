@@ -1,6 +1,5 @@
 package com.capturestudio
 
-import android.content.Intent
 import android.util.Log
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
@@ -8,7 +7,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.capturestudio.data.processing.ImageProcessor
 import com.capturestudio.data.processing.ImageProcessingWorker
-import com.capturestudio.ui.camera.CameraActivity
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableArray
@@ -31,13 +30,14 @@ class CaptureStudioModule(reactContext: ReactApplicationContext) :
     override fun getName(): String = NAME
 
     /**
-     * Open the native camera capture UI.
+     * Not implemented — the native capture UI has not been built.
+     * Mirrors the iOS behaviour in CaptureStudio.mm so both platforms report
+     * the same thing instead of Android throwing ActivityNotFoundException.
      */
     override fun openCaptureStudio(options: ReadableMap, promise: Promise) {
-        val intent = Intent(reactApplicationContext, CameraActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        reactApplicationContext.startActivity(intent)
-        promise.resolve(null)
+        promise.resolve(Arguments.createMap().apply {
+            putString("status", "not_implemented")
+        })
     }
 
     /**

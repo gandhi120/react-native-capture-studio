@@ -1,13 +1,23 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.capturestudio">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.CAMERA" />
+    <!--
+      Intentionally empty.
 
-    <application>
-        <activity
-            android:name="com.capturestudio.ui.camera.CameraActivity"
-            android:exported="false"
-            android:theme="@style/Theme.AppCompat.NoActionBar" />
-    </application>
+      openCaptureStudio() is unfinished on both platforms (iOS returns
+      "not_implemented"), so the library declares nothing: consuming apps stay
+      free of a CAMERA permission they cannot use, and Play does not filter
+      them off camera-less devices.
+
+      When the capture UI is finished, add back:
+
+        <uses-permission android:name="android.permission.CAMERA" />
+        <uses-feature android:name="android.hardware.camera" android:required="false" />
+        <application>
+            <activity
+                android:name="com.capturestudio.ui.camera.CameraActivity"
+                android:exported="false"
+                android:theme="@style/Theme.AppCompat.NoActionBar" />
+        </application>
+    -->
 
 </manifest>
